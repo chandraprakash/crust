@@ -301,6 +301,7 @@ mod test {
     use cbor;
     use rand;
     use transport;
+    use rustc_serialize::json;
 
     #[test]
     fn serialisation() {
@@ -357,9 +358,60 @@ mod test {
         // read_contact = bootstrap_handler.read_bootstrap_contacts();
         // assert!(read_contact.len() == 0);
 
-        match fs::remove_file(file_name.clone()) {
-            Ok(_) => (),
-            Err(e) => println!("Failed to remove {}: {}", file_name, e),
-        };
+        // match fs::remove_file(file_name.clone()) {
+        //     Ok(_) => (),
+        //     Err(e) => println!("Failed to remove {}: {}", file_name, e),
+        // };
     }
+
+
+#[test]
+fn bla2() {
+    let mut random_addr_0 = Vec::with_capacity(4);
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+
+    let port_0: u16 = rand::random::<u16>();
+    let addr_0 = net::SocketAddrV4::new(net::Ipv4Addr::new(random_addr_0[0], random_addr_0[1], random_addr_0[2], random_addr_0[3]), port_0);
+    let (public_key, _) = sodiumoxide::crypto::asymmetricbox::gen_keypair();
+
+    let new_contact = Contact::new(transport::Endpoint::Tcp(SocketAddr::V4(addr_0)), super::PublicKey::Asym(public_key));
+
+    // Serialize using `json::encode`
+    let encoded = json::encode(&new_contact).unwrap();
+
+    println!("{:?}", encoded);
+
+    // // Deserialize using `json::decode`
+    // let decoded: TestStruct = json::decode(&encoded).unwrap();
+    // println!("{:?}", decoded.data_int);
+}
+
+#[derive(RustcDecodable, RustcEncodable)]
+pub struct TestStruct  {
+    data_int: u8,
+    data_str: String,
+    data_vector: Vec<u8>,
+}
+
+
+#[test]
+fn bla() {
+    let object = TestStruct {
+        data_int: 1,
+        data_str: "homura".to_string(),
+        data_vector: vec![2,3,4,5],
+    };
+
+    // Serialize using `json::encode`
+    let encoded = json::encode(&object).unwrap();
+
+    println!("{:?}", encoded);
+
+    // Deserialize using `json::decode`
+    let decoded: TestStruct = json::decode(&encoded).unwrap();
+    println!("{:?}", decoded.data_int);
+}
 }
