@@ -22,6 +22,8 @@ use std::io::Write;
 use std::io::Result as IoResult;
 use std::error::Error;
 use std::sync::mpsc;
+use std::str;
+use std::str::FromStr;
 use beacon;
 use cbor::CborTagEncode;
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
@@ -59,19 +61,47 @@ impl Endpoint {
     }
 }
 
+
+
+// impl Encodable for Endpoint {
+//     fn encode<E: Encoder>(&self, e: &mut E)->Result<(), E::Error> {
+//         let address = match *self {
+//             Endpoint::Tcp(socket_addr) => socket_addr.to_string()
+//         };
+//         try!(e.emit_struct_field( "endpoint", 0usize, |e| address.encode(e)));
+//         Ok(())
+//     }
+// }
+
+
+// impl Decodable for Endpoint {
+//     fn decode<D: Decoder>(d: &mut D)->Result<Endpoint, D::Error> {
+//         d.read_struct("root", 0, |d| {
+//                 d.read_struct_field("data", 0, |d| {
+//                         let address = try!(d.read_struct_field("endpoint", 0usize, |d| {
+//                                 let address_string: String = try!(Decodable::decode(d));
+//                                 Ok(SocketAddr::from_str(&address_string).unwrap())
+//                         }));
+//                         return Ok(Endpoint::Tcp(address));
+//                 })
+//         })
+//     }
+// }
+
 impl Encodable for Endpoint {
     fn encode<E: Encoder>(&self, e: &mut E)->Result<(), E::Error> {
-        let address = array_to_vec(&beacon::serialise_address(self.get_address()));
-        CborTagEncode::new(5483_000, &address).encode(e)
+        let address = match *self {
+            Endpoint::Tcp(socket_addr) => socket_addr.to_string()
+        };
+        try!(address.encode(e));
+        Ok(())
     }
 }
 
 impl Decodable for Endpoint {
     fn decode<D: Decoder>(d: &mut D)->Result<Endpoint, D::Error> {
-        let _ = try!(d.read_u64());
-        let decoded: Vec<u8> = try!(Decodable::decode(d));
-        let address: SocketAddr = beacon::parse_address(&decoded).unwrap();
-
+        let decoded: String = try!(Decodable::decode(d));
+        let address: SocketAddr = SocketAddr::from_str(&decoded).unwrap();
         Ok(Endpoint::Tcp(address))
     }
 }
@@ -232,6 +262,10 @@ fn compare_ip_addrs(a1: &SocketAddr, a2: &SocketAddr) -> Ordering {
 mod test {
     use super::*;
     use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6, Ipv4Addr, Ipv6Addr};
+    use rand;
+    use std::net;
+    use cbor;
+    use rustc_serialize::json;
 
     fn v4(a: u8, b: u8, c: u8, d: u8, e: u16) -> Endpoint {
         Endpoint::Tcp(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a,b,c,d),e)))
@@ -283,4 +317,25 @@ mod test {
         test(v6(1,2,3,4,5,6,7,8,9,10,11), v6(1,2,3,4,5,6,7,8,9,11,11));
         test(v6(1,2,3,4,5,6,7,8,9,10,11), v6(1,2,3,4,5,6,7,8,9,10,12));
     }
+
+#[test]
+fn endpoint_serialisation() {
+    let mut random_addr_0 = Vec::with_capacity(4);
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+    random_addr_0.push(rand::random::<u8>());
+    let port_0: u16 = rand::random::<u16>();
+    let addr_0 = net::SocketAddrV4::new(net::Ipv4Addr::new(random_addr_0[0], random_addr_0[1], random_addr_0[2], random_addr_0[3]), port_0);
+    let ep = Endpoint::Tcp(SocketAddr::V4(addr_0));
+
+    // Serialize using `json::encode`
+    let encoded = json::encode(&ep).unwrap();
+
+    println!("encoded: {:?}", encoded);
+
+    // Deserialize using `json::decode`
+    let decoded: Endpoint = json::decode(&encoded).unwrap();
+    assert_eq!(decoded, ep);
+}
 }
