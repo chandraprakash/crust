@@ -166,6 +166,41 @@ mod test {
     use std::thread;
     use std::net::SocketAddr;
     use std::str::FromStr;
+    use net2::UdpBuilder;
+
+macro_rules! t {
+    ($e:expr) => (match $e {
+        Ok(e) => e,
+        Err(e) => panic!("{} failed with: {}", stringify!($e), e),
+    })
+}
+
+ #[test]
+    fn cp_net2() {
+        let b = t!(UdpBuilder::new_v4());
+                 b.reuse_address(true);
+
+        t!(b.bind("127.0.0.1:5483"));
+
+
+
+        let b2 = t!(UdpBuilder::new_v4());
+        b2.reuse_address(true);
+        t!(b2.bind("127.0.0.1:5483"));
+
+
+
+        //let listener = t!(b.listen(200));
+
+
+
+
+        //let addr = t!(listener.local_addr());
+        //println!("listening on {:?}", addr);
+
+    }
+
+
 
  #[test]
     fn test_small_stream() {
